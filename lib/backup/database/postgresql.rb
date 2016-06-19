@@ -150,11 +150,11 @@ module Backup
         psql_execute("CREATE DATABASE #{temporary_database_name};")
       end
 
-      def psql_execute(query)
+      def psql_execute(query, database = nil)
         "#{ password_option }" +
         "#{ sudo_option }" +
         "#{ utility(:psql) } #{ username_option } #{ connectivity_options } " +
-        "-c '#{query}'"
+        "--dbname=#{database ? database : name } -c '#{query}'"
       end
 
       def restore_dump_to_temporary_database
@@ -165,7 +165,7 @@ module Backup
       end
 
       def run_check_dump_query
-        psql_execute("#{check_dump_query}' --database='#{temporary_database_name}")
+        psql_execute(check_dump_query, temporary_database_name)
       end
 
       def temporary_database_name
