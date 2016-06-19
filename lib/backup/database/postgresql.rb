@@ -75,10 +75,8 @@ module Backup
         pipeline << "#{ utility(:cat) } > " +
             "'#{ File.join(dump_path, dump_filename) }.#{ dump_ext }'"
         if check_dump_query
-          pipeline << create_temporary_database
-          pipeline << restore_dump_to_temporary_database
-          pipeline << run_check_dump_query
-          pipeline << "#{success_drop_temporary_database} || #{failure_drop_temporary_database}"
+          Logger.info("#{create_temporary_database} && #{restore_dump_to_temporary_database} && #{run_check_dump_query}")
+          pipeline << "#{create_temporary_database} && #{restore_dump_to_temporary_database} && #{run_check_dump_query}"
         end
 
         pipeline.run
@@ -148,6 +146,7 @@ module Backup
       end
 
       def create_temporary_database
+        psql_execute("DROP DATABASE IF EXISTS #{temporary_database_name};") + ' && ' +
         psql_execute("CREATE DATABASE #{temporary_database_name};")
       end
 
@@ -155,30 +154,22 @@ module Backup
         "#{ password_option }" +
         "#{ sudo_option }" +
         "#{ utility(:psql) } #{ username_option } #{ connectivity_options } " +
-        "-c '#{Shellwords.escape(query)}'"
+        "-c '#{query}'"
       end
 
       def restore_dump_to_temporary_database
         "#{ password_option }" +
         "#{ sudo_option }" +
-        "#{ utility(:pg_restore) } #{ username_option } #{ connectivity_options } " +
-        "#{temporary_database_option} '#{ File.join(dump_path, dump_filename) }.#{ dump_ext }'"
+        "#{ utility(:gunzip) } -c #{ File.join(dump_path, dump_filename) }.#{ dump_ext } | #{utility(:psql)} #{ username_option } #{ connectivity_options } " +
+        "#{temporary_database_name}"
       end
 
       def run_check_dump_query
-        psql_execute("\\c #{temporary_database_name}; #{check_dump_query}")
-      end
-
-      def success_drop_temporary_database
-        psql_execute("DROP DATABASE #{temporary_database_name};")
-      end
-
-      def failure_drop_temporary_database
-        psql_execute("DROP DATABASE #{temporary_database_name}; DUMP IS INVALID")
+        psql_execute("#{check_dump_query}' --database=#{temporary_database_name}")
       end
 
       def temporary_database_name
-        "#{name}_check_dump"
+        "#{name}_check_dump".downcase
       end
     end
   end
