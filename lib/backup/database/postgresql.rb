@@ -165,7 +165,7 @@ module Backup
       end
 
       def run_check_dump_query
-        psql_execute("#{check_dump_query}' --database=#{temporary_database_name}")
+        psql_execute("#{check_dump_query}' --database='#{temporary_database_name}")
       end
 
       def temporary_database_name
